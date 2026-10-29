@@ -110,8 +110,10 @@ for:
       - choco install -y cmake --version 3.16.6
       - choco install -y php
       - refreshenv
-      - curl -fsSLO https://nsis.sourceforge.io/mediawiki/images/1/18/NsProcess.zip
+      # The current archive is v1.7 and no longer contains nsProcessW.dll.
+      - curl -fsSL -o nsProcess.zip https://nsis.sourceforge.io/mediawiki/images/archive/1/18/20261029203037!NsProcess.zip
       - 7z e nsProcess.zip -o"%ProgramFiles(x86)%\NSIS\Unicode\Plugins" nsProcessW.dll -r
+      - if not exist "%ProgramFiles(x86)%\NSIS\Unicode\Plugins\nsProcessW.dll" exit /b 1
       - if "%ARCH%" == "x64" call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
       - if "%ARCH%" == "x86" call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars32.bat"
     build_script:
