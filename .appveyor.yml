@@ -21,7 +21,7 @@ for:
 
       install-deps() {
         local arch="$1"; shift
-        local native=("$@" php-cli)
+        local native=("$@" php-cli gcc-7 g++-7)
         local target=(libgtk-3-dev)
 
         sudo dpkg --add-architecture $arch
@@ -30,7 +30,7 @@ for:
         sudo aptitude install -yR ${native[@]} ${target[@]/%/:$arch} > /dev/null
       }
 
-      sudo update-alternatives --set gcc /usr/bin/gcc-7
+      export CC=gcc-7 CXX=g++-7
 
       case $ARCH in
       x86_64)
