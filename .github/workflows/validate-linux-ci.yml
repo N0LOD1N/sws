@@ -1,0 +1,54 @@
+name: Validate Linux CI repair
+on:
+  push:
+    branches: [codex/validate-linux-ci]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, i686, aarch64, armv7l]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Extract the actual AppVeyor Linux install script
+        shell: python
+        run: |
+          from pathlib import Path
+          text = Path('.appveyor.yml').read_text()
+          block = text.split('    install: |-\n', 1)[1].split('    build_script:', 1)[0]
+          script = '\n'.join(line[6:] for line in block.splitlines())
+          Path('/tmp/sws-install.sh').write_text(script + '\n')
+      - name: Build and package with GCC 7 on Ubuntu 18.04
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker run --rm -e ARCH -v "$GITHUB_WORKSPACE:/src" -v /tmp/sws-install.sh:/tmp/sws-install.sh:ro ubuntu:18.04 bash -euxo pipefail -c '
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y -qq ca-certificates curl sudo build-essential git pkg-config perl xz-utils file
+            cd /tmp
+            curl -fsSLO https://github.com/Kitware/CMake/releases/download/v3.22.6/cmake-3.22.6-linux-x86_64.tar.gz
+            curl -fsSLO https://github.com/Kitware/CMake/releases/download/v3.22.6/cmake-3.22.6-SHA-256.txt
+            sha256sum --check --ignore-missing cmake-3.22.6-SHA-256.txt
+            tar -xzf cmake-3.22.6-linux-x86_64.tar.gz -C /opt
+            export PATH=/opt/cmake-3.22.6-linux-x86_64/bin:$PATH
+            # AppVeyor includes this repository; the install script removes it.
+            touch /etc/apt/sources.list.d/google-chrome.list
+            git config --global --add safe.directory /src
+            cd /src
+            source /tmp/sws-install.sh
+            "$CC" --version
+            "$CXX" --version
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="${TOOLCHAIN:-}"
+            cmake --build build --parallel 2
+            cd build
+            cpack
+            file reaper_sws*.so
+          '
